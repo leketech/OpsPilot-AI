@@ -1,0 +1,65 @@
+name: CI/CD
+
+on:
+  push:
+    branches: ["main", "feat/ops1"]
+  pull_request:
+    branches: ["main", "feat/ops1"]
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Ensure Go modules are tidy
+        run: |
+          go mod tidy
+          if [ -n "$(git status --porcelain go.mod go.sum)" ]; then
+            echo "go.mod or go.sum changed; please run 'go mod tidy' in backend and commit the result."
+            git --no-pager diff -- go.mod go.sum
+            exit 1
+          fi
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Test
+        run: go test ./...
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Type Check
+        run: npm run type-check
+
+      - name: Build
+        run: npm run build
