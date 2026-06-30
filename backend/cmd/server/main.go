@@ -2,69 +2,49 @@ package main
 
 import (
 	"os"
-	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/leketech/OpsPilot-AI/backend/internal/api/routes"
+	"github.com/leketech/OpsPilot-AI/backend/internal/app"
+	"github.com/leketech/OpsPilot-AI/backend/internal/config"
+	"github.com/leketech/OpsPilot-AI/backend/internal/database"
 )
 
-// Define a clean struct for your JSON response
-type healthResponse struct {
-	Status    string `json:"status"`
-	Service   string `json:"service"`
-	Version   string `json:"version"`
-	Timestamp string `json:"timestamp"`
-}
-
 func main() {
-	// 1. Load environment variables from a local .env file (if it exists)
-	// We ignore the error because in production (Docker/K8s), env vars are 
-	// injected directly by the system and a .env file won't be there.
-	err := godotenv.Load()
-	if err != nil {
+	if err := godotenv.Load(); err != nil {
 		log.Warn("No .env file found, using system environment variables")
-	} else {
-		log.Info(".env file loaded successfully")
 	}
-
-	// 2. Configure Logrus for beautiful, professional logs
-	log.SetFormatter(&log.TextFormatter{
-		FullTimestamp: true,
-	})
+	log.SetFormatter(&log.TextFormatter{FullTimestamp: true})
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.InfoLevel)
 
-	// 3. App Configuration
-	app := fiber.New(fiber.Config{
-		AppName: "OpsPilot-AI API v0.1.0",
-	})
+	cfg := config.Load()
 
-	// 4. Add Middlewares
-	app.Use(recover.New()) // Prevents server crashes on panics
-	app.Use(cors.New())    // Allows frontend apps to call this API
-
-	// 5. Define Routes
-	app.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(healthResponse{
-			Status:    "ok",
-			Service:   "OpsPilot AI",
-			Version:   "0.1.0",
-			Timestamp: time.Now().UTC().Format(time.RFC3339),
-		})
-	})
-
-	// 6. Dynamic Port Configuration
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080" // Default fallback
+	log.Info("Connecting to PostgreSQL...")
+	dbPool, err := database.ConnectPostgres(cfg)
+	if err != nil {
+		log.Fatalf("❌ Failed to connect to Postgres: %v", err)
 	}
+	defer dbPool.Close() 
 
-	// 7. Start Server using Logrus instead of standard log
-	log.Infof("🚀 starting OpsPilot-AI API on port :%s", port)
-	if err := app.Listen(":" + port); err != nil {
+	log.Info("Connecting to Redis...")
+	redisClient, err := database.ConnectRedis(cfg)
+	if err != nil {
+		log.Fatalf("❌ Failed to connect to Redis: %v", err)
+	}
+	defer redisClient.Close()
+
+	// 1. Create the Application Struct
+	application := app.NewApplication(cfg, dbPool, redisClient)
+
+	// 2. Register the Routes
+	routes.Register(application)
+
+	// 3. Start the Server
+	log.Infof("🚀 starting %s on port :%s", cfg.AppName, cfg.Port)
+	if err := application.Fiber.Listen(":" + cfg.Port); err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}
 }
