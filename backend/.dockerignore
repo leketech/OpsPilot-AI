@@ -1,0 +1,16 @@
+# .dockerignore
+
+# NEVER bake local secrets into the image
+.env
+.env.local
+.env.*
+
+# Ignore git and documentation to speed up the build context
+.git
+README.md
+docker-compose.yml
+
+# Ignore build artifacts
+*.exe
+*.test
+*.prof
