@@ -2,7 +2,11 @@ module github.com/leketech/OpsPilot-AI/backend
 
 go 1.26.4
 
-require github.com/gofiber/fiber/v2 v2.52.9
+require (
+	github.com/gofiber/fiber/v2 v2.52.9
+	github.com/joho/godotenv v1.5.1
+	github.com/sirupsen/logrus v1.9.4
+)
 
 require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
