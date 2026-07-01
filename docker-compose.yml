@@ -1,5 +1,6 @@
 services:
-  # 🧠 AI-Ready PostgreSQL with pgvector
+  # ── Infrastructure ──────────────────────────────────────────────────────────
+
   postgres:
     image: pgvector/pgvector:pg16
     container_name: opspilot-postgres
@@ -11,7 +12,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # Uncomment the line below when you create your init.sql file
       # - ./infra/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U opspilot -d opspilot"]
@@ -20,7 +20,6 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ⚡ Redis for caching and sessions
   redis:
     image: redis:7-alpine
     container_name: opspilot-redis
@@ -35,14 +34,20 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # 🚀 Your Go Fiber Backend
+  # ── Backend ─────────────────────────────────────────────────────────────────
+
   api:
     build:
       context: ./backend
     container_name: opspilot-api
+    # Loads QWEN_API_KEY (and any other secrets) from backend/.env on the host.
+    # The file is not baked into the image — safe to keep out of version control.
+    # required: false means the stack still starts if the file is absent.
+    env_file:
+      - path: ./backend/.env
+        required: false
     environment:
       PORT: "8080"
-      # These exactly match the .env.example and Go config we wrote!
       APP_NAME: OpsPilot AI
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -51,7 +56,7 @@ services:
       DB_NAME: opspilot
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-      LOG_LEVEL: debug
+      LOG_LEVEL: info
     ports:
       - "8080:8080"
     depends_on:
@@ -59,21 +64,36 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
     restart: unless-stopped
 
-  # 🌐 Your Frontend (Optional)
+  # ── Frontend ────────────────────────────────────────────────────────────────
+
   web:
     build:
       context: ./frontend
+      args:
+        # Baked into Next.js routes-manifest.json at build time.
+        # The Next.js server (inside the container) reaches the API via Docker's
+        # internal DNS — not localhost, which would loop back to the web container.
+        BACKEND_URL: http://api:8080
     container_name: opspilot-web
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8080
+      # Runtime env var — read by the Route Handler at request time.
+      # The build arg above bakes it into rewrites; this makes it available
+      # to server-side Route Handlers where process.env is read at runtime.
+      BACKEND_URL: http://api:8080
     ports:
       - "3000:3000"
     depends_on:
-      - api
-    profiles:
-      - fullstack # Only starts if you specifically ask for it
+      api:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   postgres_data:

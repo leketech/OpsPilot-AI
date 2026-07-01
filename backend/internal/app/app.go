@@ -7,23 +7,22 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/leketech/OpsPilot-AI/backend/internal/agent/orchestrator"
 	"github.com/leketech/OpsPilot-AI/backend/internal/config"
 )
 
-// 1. Define the Application Struct (Notice the corrected pgxpool.Pool)
 type Application struct {
 	Config *config.Config
 	DB     *pgxpool.Pool
 	Redis  *redis.Client
 	Fiber  *fiber.App
+	Agent  *orchestrator.Orchestrator
 }
 
-// 2. Initialize the Application
 func NewApplication(cfg *config.Config, db *pgxpool.Pool, rdb *redis.Client) *Application {
 	fiberApp := fiber.New(fiber.Config{
 		AppName: cfg.AppName + " API v0.1.0",
 	})
-
 	fiberApp.Use(recover.New())
 	fiberApp.Use(cors.New())
 
@@ -32,5 +31,6 @@ func NewApplication(cfg *config.Config, db *pgxpool.Pool, rdb *redis.Client) *Ap
 		DB:     db,
 		Redis:  rdb,
 		Fiber:  fiberApp,
+		Agent:  orchestrator.New(cfg, rdb),
 	}
 }

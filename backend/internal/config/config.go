@@ -17,8 +17,10 @@ type Config struct {
 	RedisHost string
 	RedisPort string
 
-	QwenAPIKey string
-	JWTSecret  string
+	QwenAPIKey  string
+	QwenBaseURL string
+	QwenModel   string
+	JWTSecret   string
 }
 
 // Load reads configuration from environment variables, applying sane
@@ -38,8 +40,10 @@ func Load() *Config {
 		RedisHost: getEnv("REDIS_HOST", "localhost"),
 		RedisPort: getEnv("REDIS_PORT", "6379"),
 
-		QwenAPIKey: getEnv("QWEN_API_KEY", ""),
-		JWTSecret:  getEnv("JWT_SECRET", ""),
+		QwenAPIKey:  getEnv("QWEN_API_KEY", ""),
+		QwenBaseURL: getEnv("QWEN_BASE_URL", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"),
+		QwenModel:   getEnv("QWEN_MODEL", "qwen-plus"),
+		JWTSecret:   getEnv("JWT_SECRET", ""),
 	}
 }
 

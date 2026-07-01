@@ -21,7 +21,7 @@ FROM alpine:3.21
 # 4. CRITICAL: Install CA certificates and timezone data
 # Without ca-certificates, HTTPS calls to AI APIs will fail!
 # tzdata ensures your logrus timestamps are accurate
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata curl
 
 WORKDIR /app
 
